@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import VisualEnhancements from "@/components/VisualEnhancements";
+/* import VisualEnhancements from "@/components/VisualEnhancements"; */
 import LandingHeader from "@/components/LandingHeader"; // ✅ ADD THIS
 
 /* =========================
@@ -50,7 +50,7 @@ export default function LandingPage() {
       <LandingHeader />
 
       {/* Background visuals */}
-      <VisualEnhancements />
+      // <VisualEnhancements /> 
 
       {/* ✅ Add top padding so content doesn't hide under fixed header */}
       <div className="relative min-h-screen flex flex-col items-center justify-center z-0 px-6 pt-32 pb-20 text-center">
