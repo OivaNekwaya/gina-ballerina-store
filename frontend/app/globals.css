@@ -1,0 +1,38 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Import girly fonts */
+@import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;500;600;700&family=Quicksand:wght@300;400;500;600;700&display=swap');
+
+@layer base {
+  body {
+    font-family: 'Quicksand', sans-serif;
+    background: linear-gradient(135deg, #fff0f5 0%, #f5e6ff 100%); /* softer pastel */
+    min-height: 100vh;
+  }
+}
+
+@layer components {
+  .girly-heading {
+    font-family: 'Dancing Script', cursive;
+    font-weight: 700;
+    background: linear-gradient(135deg, #e84393, #9b59b6);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    text-shadow: 2px 2px 8px rgba(0,0,0,0.03);
+  }
+  
+  .btn-primary {
+    @apply bg-gradient-to-r from-pink to-purple hover:from-purple hover:to-pink text-white font-semibold py-2 px-6 rounded-full transition-all duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-1;
+  }
+  
+  .btn-secondary {
+    @apply bg-white/80 backdrop-blur-sm border border-pink/30 hover:bg-pink/10 text-pink font-semibold py-2 px-6 rounded-full transition-all duration-300;
+  }
+  
+  .card {
+    @apply bg-white rounded-2xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1;
+  }
+}
