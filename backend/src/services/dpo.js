@@ -1,14 +1,13 @@
-// backend/src/services/dpo.js
 import axios from 'axios';
 import { parseStringPromise, Builder } from 'xml2js';
 
-const API_URL = process.env.DPO_API_URL;
-const COMPANY_TOKEN = process.env.DPO_COMPANY_TOKEN;
-const SERVICE_TYPE = process.env.DPO_SERVICE_TYPE;
+// Use environment variables – fallback to test values if missing
+const API_URL = 'https://secure.3gdirectpay.com/API/v6/';
+const COMPANY_TOKEN = '8D3DA73D-9D7F-4E09-96D4-3D44E7A83EA3';
+const SERVICE_TYPE = '3854';
 
-/**
- * Build XML for createToken
- */
+console.log('DPO API URL:', API_URL);
+
 function buildCreateTokenXML(orderDetails) {
   const {
     companyRef,
@@ -47,9 +46,6 @@ function buildCreateTokenXML(orderDetails) {
   return builder.buildObject(xmlObj);
 }
 
-/**
- * Build XML for verifyToken
- */
 function buildVerifyTokenXML(transactionToken, companyRef) {
   const xmlObj = {
     'API3G': {
@@ -63,14 +59,14 @@ function buildVerifyTokenXML(transactionToken, companyRef) {
   return builder.buildObject(xmlObj);
 }
 
-/**
- * Send XML to DPO API and parse response
- */
 async function callDPO(xmlBody) {
   try {
     const response = await axios.post(API_URL, xmlBody, {
       headers: { 'Content-Type': 'application/xml' }
     });
+    // Log raw response for debugging
+    console.log('DPO response status:', response.status);
+    console.log('DPO response data:', response.data);
     const result = await parseStringPromise(response.data, { explicitArray: false });
     const api3g = result.API3G;
     if (api3g.Result === '000') {
@@ -83,17 +79,24 @@ async function callDPO(xmlBody) {
     } else {
       return {
         success: false,
-        error: api3g.ResultExplanation || 'Unknown DPO error'
+        error: api3g.ResultExplanation || 'Unknown DPO error',
+        raw: api3g
       };
     }
   } catch (err) {
     console.error('DPO API call failed:', err.message);
+    if (err.response) {
+      console.error('Response status:', err.response.status);
+      console.error('Response headers:', err.response.headers);
+      console.error('Response data:', err.response.data);
+    }
     return { success: false, error: err.message };
   }
 }
 
 export async function createDPOToken(orderDetails) {
   const xml = buildCreateTokenXML(orderDetails);
+  console.log('XML request (first 200 chars):', xml.substring(0, 200));
   return await callDPO(xml);
 }
 

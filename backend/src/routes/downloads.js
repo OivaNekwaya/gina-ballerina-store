@@ -1,5 +1,5 @@
 import express from 'express';
-import pool from '../db/pool.js';
+import {pool} from '../db/pool.js';
 import { generateSignedUrl } from '../services/r2.js';
 import rateLimit from 'express-rate-limit';
 

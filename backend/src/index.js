@@ -12,7 +12,7 @@ import productsRouter from './routes/products.js';
 import ordersRouter from './routes/orders.js';
 import downloadsRouter from './routes/downloads.js';
 import adminRouter from './routes/admin.js';
-import verifyPaymentRouter from './routes/verify-payment.js'; // <-- NEW
+import verifyPaymentRouter from './routes/verify-payment.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -26,9 +26,24 @@ app.use('/api/', limiter);
 // Body parser
 app.use(express.json());
 
-// CORS
+// Dynamic CORS – allow multiple origins
+const allowedOrigins = [
+  'http://localhost:3000',
+  'https://gina-ballerina-store.vercel.app',
+  'https://ginaballerina.com',
+  'https://www.ginaballerina.com'
+];
+
 app.use(cors({
-  origin: 'http://localhost:3000',
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true
 }));
 
@@ -49,7 +64,7 @@ app.use('/api/admin', express.json());
 app.use('/api/admin', adminRouter);
 
 // Payment verification (DPO)
-app.use('/api/verify-payment', verifyPaymentRouter); // <-- NEW
+app.use('/api/verify-payment', verifyPaymentRouter);
 
 // Health check
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
