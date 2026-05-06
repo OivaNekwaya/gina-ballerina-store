@@ -6,9 +6,17 @@
 @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;500;600;700&family=Quicksand:wght@300;400;500;600;700&display=swap');
 
 @layer base {
+  html, body {
+    overflow-x: hidden;
+    width: 100%;
+    max-width: 100%;
+  }
+  * {
+    box-sizing: border-box;
+  }
   body {
     font-family: 'Quicksand', sans-serif;
-    background: linear-gradient(135deg, #fff0f5 0%, #f5e6ff 100%); /* softer pastel */
+    background: linear-gradient(135deg, #fff0f5 0%, #f5e6ff 100%);
     min-height: 100vh;
   }
 }
