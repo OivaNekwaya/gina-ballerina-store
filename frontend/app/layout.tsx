@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { CartProvider } from "@/contexts/CartContext";
 import ClientLayout from "@/components/ClientLayout";
@@ -6,7 +6,12 @@ import ClientLayout from "@/components/ClientLayout";
 export const metadata: Metadata = {
   title: "Gina Ballerina – Digital Dance Boutique",
   description: "Beautiful digital downloads for little dancers and grown-up ballerinas. Pink, purple, and grey magic.",
-  viewport: "width=device-width, initial-scale=1, maximum-scale=1",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
 };
 
 export default function RootLayout({

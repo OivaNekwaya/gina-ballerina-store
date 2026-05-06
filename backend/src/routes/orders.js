@@ -1,7 +1,7 @@
 import express from 'express';
-import { pool } from '../db/pool.js';
-import { stripe } from '../services/stripe.js';
-import crypto from 'crypto'; // if needed for UUID
+import pool from '../db/pool.js';
+import { createDPOToken } from '../services/dpo.js';
+import crypto from 'crypto';
 
 const router = express.Router();
 
@@ -12,64 +12,79 @@ router.post('/create-checkout', async (req, res) => {
   }
 
   try {
-    // Get product details
     const productIds = items.map(i => i.productId);
-    const productsRes = await pool.query('SELECT id, title, price FROM products WHERE id IN (' + productIds.map(() => '?').join(',') + ')', productIds);
+    const productsRes = await pool.query(
+      'SELECT id, title, price FROM products WHERE id = ANY($1::int[])',
+      [productIds]
+    );
     const productMap = new Map(productsRes.rows.map(p => [p.id, p]));
 
     let total = 0;
-    const lineItems = [];
     for (const item of items) {
       const product = productMap.get(item.productId);
       if (!product) throw new Error(`Product ${item.productId} not found`);
-      const itemTotal = product.price * item.quantity;
-      total += itemTotal;
-      lineItems.push({
-        price_data: {
-          currency: 'usd',        // <-- USD only
-          product_data: { name: product.title },
-          unit_amount: Math.round(itemTotal * 100), // in cents
-        },
-        quantity: 1,
-      });
+      total += product.price * item.quantity;
     }
 
-    // Create order in pending state
     const orderUuid = crypto.randomBytes(16).toString('hex');
-    const orderRes = await pool.query(
+    const insertResult = await pool.query(
       `INSERT INTO orders (order_uuid, customer_email, customer_name, total_amount, currency, payment_status)
-       VALUES (?, ?, ?, ?, 'USD', 'pending')`,
+       VALUES ($1, $2, $3, $4, 'USD', 'pending') RETURNING id`,
       [orderUuid, customerEmail, customerName, total]
     );
-    const orderId = orderRes.lastID || orderRes.insertId; // adjust for SQLite
+    const orderId = insertResult.rows[0].id;
 
-    // Insert order items
     for (const item of items) {
       const product = productMap.get(item.productId);
       await pool.query(
-        `INSERT INTO order_items (order_id, product_id, price_at_purchase, quantity) VALUES (?, ?, ?, ?)`,
-        [orderId, item.productId, product.price, item.quantity]
+        `INSERT INTO order_items (order_id, product_id, price_at_purchase, quantity)
+         VALUES ($1, $2, $3, $4)`,
+        [orderId, product.id, product.price, item.quantity]
       );
     }
 
-    // Create Stripe Checkout Session – force USD & card only
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],        // <-- only card
-      line_items: lineItems,
-      mode: 'payment',
-      customer_email: customerEmail,
-      success_url: `${process.env.FRONTEND_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.FRONTEND_URL}/cart`,
-      metadata: { order_uuid: orderUuid },
-      // Disable automatic tax & currency conversion
-      automatic_tax: { enabled: false },
-      // Do NOT set `currency` at session level – it's defined per line item
+    const redirectURL = `${process.env.FRONTEND_URL}/payment-verify?order=${orderUuid}`;
+    const backURL = `${process.env.FRONTEND_URL}/cart`;
+    const dpoResult = await createDPOToken({
+      companyRef: orderUuid,
+      amount: total,
+      customerEmail,
+      customerName,
+      redirectURL,
+      backURL,
     });
 
-    await pool.query(`UPDATE orders SET stripe_session_id = ? WHERE id = ?`, [session.id, orderId]);
-    res.json({ sessionId: session.id, url: session.url });
+    if (!dpoResult.success) {
+      await pool.query(`UPDATE orders SET payment_status = 'failed' WHERE order_uuid = $1`, [orderUuid]);
+      return res.status(500).json({ error: 'Payment initiation failed: ' + (dpoResult.error || 'Unknown') });
+    }
+
+    await pool.query(`UPDATE orders SET gateway_transaction_id = $1 WHERE order_uuid = $2`, [dpoResult.token, orderUuid]);
+
+    const paymentUrl = `${process.env.DPO_PAYMENT_URL}?ID=${dpoResult.token}`;
+    res.json({ success: true, paymentUrl, orderUuid });
   } catch (err) {
     console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Order lookup endpoint (for customers to re-download)
+router.post('/lookup', async (req, res) => {
+  const { email, orderUuid } = req.body;
+  if (!email || !orderUuid) return res.status(400).json({ error: 'Email and order ID required' });
+  try {
+    const result = await pool.query(
+      `SELECT dt.token, dt.expires_at, dt.remaining_downloads, p.title as product_title
+       FROM download_tokens dt
+       JOIN orders o ON dt.order_id = o.id
+       JOIN products p ON dt.product_id = p.id
+       WHERE o.customer_email = $1 AND o.order_uuid = $2 AND dt.expires_at > NOW()`,
+      [email, orderUuid]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'No active downloads found' });
+    res.json({ downloads: result.rows });
+  } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });

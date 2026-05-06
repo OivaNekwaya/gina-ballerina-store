@@ -3,9 +3,6 @@ import { useCart } from "@/contexts/CartContext";
 import Link from "next/link";
 import { Trash2, Minus, Plus, ShoppingBag } from "lucide-react";
 import { useState } from "react";
-import { loadStripe } from "@stripe/stripe-js";
-
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
 export default function CartPage() {
   const { items, removeItem, updateQuantity, totalPrice, clearCart } = useCart();
@@ -32,8 +29,11 @@ export default function CartPage() {
         }),
       });
       const data = await res.json();
-      if (data.url) window.location.href = data.url;
-      else throw new Error("Checkout failed");
+      if (data.paymentUrl) {
+        window.location.href = data.paymentUrl;
+      } else {
+        throw new Error(data.error || "Checkout failed");
+      }
     } catch (err) {
       console.error(err);
       alert("Something went wrong. Please try again.");

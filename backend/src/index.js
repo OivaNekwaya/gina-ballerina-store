@@ -10,9 +10,9 @@ import cookieParser from 'cookie-parser';
 
 import productsRouter from './routes/products.js';
 import ordersRouter from './routes/orders.js';
-import webhooksRouter from './routes/webhooks.js';
 import downloadsRouter from './routes/downloads.js';
 import adminRouter from './routes/admin.js';
+import verifyPaymentRouter from './routes/verify-payment.js'; // <-- NEW
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -23,19 +23,16 @@ const app = express();
 const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100 });
 app.use('/api/', limiter);
 
-// Webhooks need raw body (must come before express.json)
-app.use('/api/webhooks', express.raw({ type: 'application/json' }), webhooksRouter);
-
-// Global JSON parser for all other API routes
+// Body parser
 app.use(express.json());
 
-// CORS with credentials
+// CORS
 app.use(cors({
   origin: 'http://localhost:3000',
   credentials: true
 }));
 
-// Serve static files from the uploads folder
+// Static files
 const uploadsPath = path.join(__dirname, '../uploads');
 app.use('/uploads', express.static(uploadsPath));
 
@@ -44,17 +41,20 @@ app.use('/api/products', productsRouter);
 app.use('/api/orders', ordersRouter);
 app.use('/api/download', downloadsRouter);
 
-// Cookie parser (needed for admin token)
+// Cookie parser
 app.use(cookieParser());
 
-// Admin routes – ensure JSON parsing
+// Admin routes
 app.use('/api/admin', express.json());
 app.use('/api/admin', adminRouter);
+
+// Payment verification (DPO)
+app.use('/api/verify-payment', verifyPaymentRouter); // <-- NEW
 
 // Health check
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
-// Root message
+// Root
 app.get('/', (req, res) => res.send('Gina Ballerina Backend is running'));
 
 const PORT = process.env.PORT || 5000;
